@@ -2,7 +2,8 @@ package nucleusrv.components
 import chisel3._
 import chisel3.stage.ChiselStage
 import nucleusrv.tracer._
-
+import BabyKyber.BabyKyberHarness
+import caravan.bus.wishbone.{WishboneHost, WishboneDevice, WishboneConfig}
 
 class Top(programFile:Option[String], dataFile:Option[String]) extends Module{
 
@@ -11,7 +12,7 @@ class Top(programFile:Option[String], dataFile:Option[String]) extends Module{
     val rvfi = new TracerO
   })
 
-  implicit val config:Configs = Configs(
+  implicit val config: Configs = Configs(
     XLEN = 32,
     M = true,
     F = true,
@@ -20,8 +21,38 @@ class Top(programFile:Option[String], dataFile:Option[String]) extends Module{
     TRACE = true
   )
 
+  implicit val wbConfig = WishboneConfig(32, 32)
+val babyKyberHarness = Module(new BabyKyberHarness())
+
   val core: Core = Module(new Core())
   core.io.stall := false.B
+
+
+  // Enable is always on, triggers are from core
+  babyKyberHarness.io.enable := true.B
+  babyKyberHarness.io.key_enable := core.io.key_enable_trigger
+  babyKyberHarness.io.encryption_enable := core.io.encryption_enable_trigger
+  babyKyberHarness.io.decryption_enable := core.io.decryption_enable_trigger
+  // Optionally, connect or monitor done signals
+  // val keyDone = babyKyber.io.key_done
+  // val encryptionDone = babyKyber.io.encryption_done
+  // val decryptionDone = babyKyber.io.decryption_done
+
+  core.io.baby_kyber match {
+    case Some(bkIO) =>
+      // Core <-> Harness
+      bkIO.rsp.bits.error := false.B
+      babyKyberHarness.io.req <> bkIO.req
+      bkIO.rsp <> babyKyberHarness.io.rsp
+      // Interrupts (core ko wapas)
+      bkIO.cio_babykyber_intr_key := babyKyberHarness.io.cio_babykyber_intr_key
+      bkIO.cio_babykyber_intr_encrypt := babyKyberHarness.io.cio_babykyber_intr_encrypt
+      bkIO.cio_babykyber_intr_decrypt := babyKyberHarness.io.cio_babykyber_intr_decrypt
+    case None => // Not enabled
+  }
+
+  
+  
 
   val dmem = Module(new SRamTop(dataFile))
   val imem = Module(new SRamTop(programFile))
