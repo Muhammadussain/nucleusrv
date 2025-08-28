@@ -67,6 +67,7 @@ class SRamTop(val programFile:Option[String] ) extends Module {
         }
 
     io.rsp.bits.dataResponse := sram.io.rdata_o
+    io.rsp.bits.error := false.B // Default initialization to avoid FIRRTL error
 }
 
 class SRAMIO extends Bundle {
