@@ -2,12 +2,12 @@
 #include "verilated_vcd_c.h"
 #include "VTop.h"
 
-#define MAX_SIM_TIME 100  // In cycles
+#define MAX_SIM_TIME 8000  // In cycles
 
 int main(int argc, char **argv, char **env) {
 	if (false && argc && argv && env) {}
 
-	Verilated::mkdir("out/nucleusrv.components.NRVDriver/logs");
+	Verilated::mkdir("logs");
 
 	const std::unique_ptr<VerilatedContext> contextp {new VerilatedContext};
 	contextp->commandArgs(argc, argv);
@@ -20,7 +20,7 @@ int main(int argc, char **argv, char **env) {
 	};
 	top->trace(tfp, 5);
 
-	tfp->open("out/nucleusrv.components.NRVDriver/logs/top.vcd");
+	tfp->open("logs/top.vcd");
 
 	unsigned int sim_time = 0;
 	top->clock = 1;

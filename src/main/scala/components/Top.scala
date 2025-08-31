@@ -3,7 +3,6 @@ import chisel3._
 import chisel3.stage.ChiselStage
 import nucleusrv.tracer._
 import BabyKyber.BabyKyberHarness
-import caravan.bus.wishbone.{WishboneHost, WishboneDevice, WishboneConfig}
 
 class Top(programFile:Option[String], dataFile:Option[String]) extends Module{
 
@@ -21,8 +20,8 @@ class Top(programFile:Option[String], dataFile:Option[String]) extends Module{
     TRACE = true
   )
 
-  implicit val wbConfig = WishboneConfig(32, 32)
-val babyKyberHarness = Module(new BabyKyberHarness())
+  // pass explicit WishboneConfig to harness (fully-qualified to avoid import)
+ val babyKyberHarness = Module(new BabyKyberHarness())
 
   val core: Core = Module(new Core())
   core.io.stall := false.B
