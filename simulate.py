@@ -3,13 +3,14 @@ from os.path import \
     abspath, \
     join, \
     isdir, \
-    split
+    split, isfile
 from subprocess import run
 from argparse import ArgumentParser
 from sys import exit
 from shutil import rmtree
 from os import walk, makedirs, chdir
 from re import search
+import glob
 
 ROOT = dirname(
     abspath(__file__)
@@ -37,7 +38,39 @@ if __name__ == '__main__':
     if isdir(target_dir):
         rmtree(target_dir)
     makedirs(target_dir)
-    execute_sp((
+    # If the firmware is in babykyber, add the SDK driver source to the build
+    extra_sources = []
+    extra_includes = []
+    if 'babykyber' in args.prog:
+        # Check for new SDK structure first (include/, src/)
+        sdk_include_dir = join(dirname(args.prog), 'include')
+        sdk_src_dir = join(dirname(args.prog), 'src')
+
+        if isdir(sdk_include_dir) and isdir(sdk_src_dir):
+            # New structure: include/ and src/ directories
+            extra_sources.extend(glob.glob(join(sdk_src_dir, '*.c')))
+            extra_includes.append('-I' + sdk_include_dir)
+        else:
+            # Fallback to old structure: sdk/ directory
+            sdk_dir = join(dirname(args.prog), 'sdk')
+            if not isdir(sdk_dir):
+                sdk_dir = join(dirname(dirname(args.prog)), 'sdk')
+            if isdir(sdk_dir):
+                # Add all .c files in the SDK directory
+                extra_sources.extend(glob.glob(join(sdk_dir, '*.c')))
+                extra_includes.append('-I' + sdk_dir)
+            else:
+                # Final fallback: look for HAL files in the same directory as the main file
+                prog_dir = dirname(args.prog)
+                hal_files = ['babykyber_hal.c', 'hal.c']  # common HAL filenames
+                for hal_file in hal_files:
+                    hal_path = join(prog_dir, hal_file)
+                    if isfile(hal_path):
+                        extra_sources.append(hal_path)
+                # Add the program directory to include path for header files
+                extra_includes.append('-I' + prog_dir)
+    # Build the ELF including any extra SDK/HAL sources and include paths
+    gcc_cmd = [
         'riscv32-unknown-elf-gcc',
         '-static',
         '-mcmodel=medany',
@@ -50,7 +83,8 @@ if __name__ == '__main__':
         '-mabi=ilp32f',
         '-o', elf,
         args.prog
-    ), text = True)
+    ] + extra_sources + extra_includes
+    execute_sp(gcc_cmd, text = True)
     execute_sp(
         f'riscv32-unknown-elf-objdump -d -Mno-aliases {elf} > {elf}.objdump',
         shell = True,
