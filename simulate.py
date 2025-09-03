@@ -33,7 +33,8 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
     prog_name = split(args.prog[0])[-1]
-    target_dir = join(ROOT, 'out', prog_name)
+    # Change output directory to root level instead of nucleusrv/out
+    target_dir = join(ROOT, '..', 'out', prog_name)
     elf = join(target_dir, prog_name.split('.')[0])
     if isdir(target_dir):
         rmtree(target_dir)
