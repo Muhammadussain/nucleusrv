@@ -3,7 +3,7 @@ from os.path import \
     abspath, \
     join, \
     isdir, \
-    split, isfile
+    split, isfile, basename
 from subprocess import run
 from argparse import ArgumentParser
 from sys import exit
@@ -24,7 +24,7 @@ def execute_sp(cmd, **kwargs):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('prog', help = 'Path to RISC-V assembly or C program')
+    parser.add_argument('prog', nargs='+', help = 'Path to RISC-V assembly or C program(s)')
     parser.add_argument(
         '--timing',
         action = 'store_const',
@@ -32,7 +32,7 @@ if __name__ == '__main__':
         help = 'Enable timing support'
     )
     args = parser.parse_args()
-    prog_name = split(args.prog)[-1]
+    prog_name = split(args.prog[0])[-1]
     target_dir = join(ROOT, 'out', prog_name)
     elf = join(target_dir, prog_name.split('.')[0])
     if isdir(target_dir):
@@ -41,34 +41,21 @@ if __name__ == '__main__':
     # If the firmware is in babykyber, add the SDK driver source to the build
     extra_sources = []
     extra_includes = []
-    if 'babykyber' in args.prog:
-        # Check for new SDK structure first (include/, src/)
-        sdk_include_dir = join(dirname(args.prog), 'include')
-        sdk_src_dir = join(dirname(args.prog), 'src')
+    if any('babykyber' in p for p in args.prog):
+        # Use XSoC-SDK structure: include/ and src/ directories
+        sdk_include_dir = join(ROOT, '..', 'XSoC-SDK', 'include')
+        sdk_src_dir = join(ROOT, '..', 'XSoC-SDK', 'src')
 
         if isdir(sdk_include_dir) and isdir(sdk_src_dir):
             # New structure: include/ and src/ directories
-            extra_sources.extend(glob.glob(join(sdk_src_dir, '*.c')))
+            all_c_files = glob.glob(join(sdk_src_dir, '*.c'))
+            # Exclude the main prog files if they're in the list to avoid duplication
+            prog_basenames = [split(p)[-1] for p in args.prog]
+            extra_sources.extend([f for f in all_c_files if split(f)[-1] not in prog_basenames])
             extra_includes.append('-I' + sdk_include_dir)
         else:
-            # Fallback to old structure: sdk/ directory
-            sdk_dir = join(dirname(args.prog), 'sdk')
-            if not isdir(sdk_dir):
-                sdk_dir = join(dirname(dirname(args.prog)), 'sdk')
-            if isdir(sdk_dir):
-                # Add all .c files in the SDK directory
-                extra_sources.extend(glob.glob(join(sdk_dir, '*.c')))
-                extra_includes.append('-I' + sdk_dir)
-            else:
-                # Final fallback: look for HAL files in the same directory as the main file
-                prog_dir = dirname(args.prog)
-                hal_files = ['babykyber_hal.c', 'hal.c']  # common HAL filenames
-                for hal_file in hal_files:
-                    hal_path = join(prog_dir, hal_file)
-                    if isfile(hal_path):
-                        extra_sources.append(hal_path)
-                # Add the program directory to include path for header files
-                extra_includes.append('-I' + prog_dir)
+            print("Error: XSoC-SDK not found. Please ensure XSoC-SDK is available.")
+            exit(1)
     # Build the ELF including any extra SDK/HAL sources and include paths
     gcc_cmd = [
         'riscv32-unknown-elf-gcc',
@@ -82,8 +69,7 @@ if __name__ == '__main__':
         '-march=rv32if',
         '-mabi=ilp32f',
         '-o', elf,
-        args.prog
-    ] + extra_sources + extra_includes
+    ] + args.prog + extra_sources + extra_includes
     execute_sp(gcc_cmd, text = True)
     execute_sp(
         f'riscv32-unknown-elf-objdump -d -Mno-aliases {elf} > {elf}.objdump',
