@@ -14,20 +14,11 @@ class BabyKyberIO extends Bundle {
   val cio_babykyber_intr_decrypt = Input(Bool())
 }
 
-class UartIO extends Bundle {
-  val req = Decoupled(new MemRequestIO)   // Request interface
-  val rsp = Flipped(Decoupled(new MemResponseIO)) // Response interface
-  val cio_uart_rx_i = Input(Bool())
-  val cio_uart_tx_o = Output(Bool())
-  val cio_uart_intr_tx_o = Output(Bool())
-}
-
 
 class MemoryFetch(
   // ...existing code...
 
   BABY_KYBER: Boolean,
-  UART: Boolean,
   TRACE: Boolean
 ) extends Module {
   val io = IO(new Bundle {
@@ -45,7 +36,6 @@ class MemoryFetch(
     val wmask = if (TRACE) Some(Output(UInt(4.W))) else None
 
     val baby_kyber = if (BABY_KYBER) Some(new BabyKyberIO) else None
-    val uart = if (UART) Some(new UartIO) else None
 
     // BabyKyber trigger outputs
     val key_enable_trigger = Output(Bool())
@@ -168,32 +158,6 @@ class MemoryFetch(
       io.baby_kyber.get.req.bits.isWrite := io.writeEnable
       io.baby_kyber.get.req.valid := true.B
       io.baby_kyber.get.rsp.ready := true.B
-    }
-  }
-
-  if (UART) {
-    val uartAddrRange = (io.aluResultIn >= "h40008000".U) && (io.aluResultIn <= "h40008FFF".U)
-    // Set default values for all Decoupled signals
-    io.uart.get.req.bits.addrRequest := 0.U
-    io.uart.get.req.bits.dataRequest := 0.U
-    io.uart.get.req.bits.activeByteLane := 0.U
-    io.uart.get.req.bits.isWrite := false.B
-    io.uart.get.req.valid := false.B
-    io.uart.get.rsp.ready := false.B
-    io.uart.get.cio_uart_tx_o := false.B
-    io.uart.get.cio_uart_intr_tx_o := false.B
-    // Only drive when in range
-    when(uartAddrRange) {
-      io.uart.get.req.bits.addrRequest := io.aluResultIn
-      io.uart.get.req.bits.dataRequest := io.writeData
-      io.uart.get.req.bits.activeByteLane := "b1111".U
-      io.uart.get.req.bits.isWrite := io.writeEnable
-      io.uart.get.req.valid := true.B
-      io.uart.get.rsp.ready := true.B
-    
-    // Initialize output signals
-    io.uart.get.cio_uart_tx_o := false.B
-    io.uart.get.cio_uart_intr_tx_o := false.B
     }
   }
 

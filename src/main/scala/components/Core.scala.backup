@@ -14,7 +14,6 @@ class Core(implicit val config:Configs) extends Module{
   val TRACE      = config.TRACE
   val BABY_KYBER = config.BABY_KYBER
 
-  val UART       = config.UART
   val io = IO(new Bundle {
     val pin: UInt = Output(UInt(32.W))
     val stall: Bool = Input(Bool())
@@ -30,8 +29,6 @@ class Core(implicit val config:Configs) extends Module{
 
     val baby_kyber = if (BABY_KYBER) Some(new BabyKyberIO) else None
 
-
-    val uart = if (UART) Some(new UartIO) else None
     // BabyKyber triggers
     val key_enable_trigger = Output(Bool())
     val encryption_enable_trigger = Output(Bool())
@@ -108,7 +105,7 @@ class Core(implicit val config:Configs) extends Module{
   val IF = Module(new InstructionFetch).io
   val ID = Module(new InstructionDecode(F, Zicsr, TRACE)).io
   val EX = Module(new Execute(F, M = M, TRACE = TRACE)).io
-  val MEM = Module(new MemoryFetch(BABY_KYBER, UART, TRACE))
+  val MEM = Module(new MemoryFetch(BABY_KYBER, TRACE))
 
   
   /*****************
@@ -351,10 +348,6 @@ class Core(implicit val config:Configs) extends Module{
     io.key_enable_trigger := MEM.io.key_enable_trigger
     io.encryption_enable_trigger := MEM.io.encryption_enable_trigger
     io.decryption_enable_trigger := MEM.io.decryption_enable_trigger
-
-  if (UART) {
-    dontTouch(io.uart.get) <> MEM.io.uart.get
-  }
   }
 
   /********************

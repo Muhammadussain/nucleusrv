@@ -34,15 +34,6 @@ class Top(programFile:Option[String], dataFile:Option[String]) extends Module{
     val key_enable_trigger = Output(Bool())
     val encryption_enable_trigger = Output(Bool())
     val decryption_enable_trigger = Output(Bool())
-
-    // UART interface
-    val uart = new Bundle {
-      val req = Decoupled(new MemRequestIO())
-      val rsp = Flipped(Decoupled(new MemResponseIO()))
-      val cio_uart_rx_i = Input(Bool())
-      val cio_uart_tx_o = Output(Bool())
-      val cio_uart_intr_tx_o = Output(Bool())
-    }
   })
 
   implicit val config: Configs = Configs(
@@ -56,23 +47,6 @@ class Top(programFile:Option[String], dataFile:Option[String]) extends Module{
 
   val core: Core = Module(new Core())
   core.io.stall := false.B
-
-  // Initialize UART interface defaults
-  io.uart.req.valid := false.B
-  io.uart.req.bits.addrRequest := 0.U
-  io.uart.req.bits.dataRequest := 0.U
-  io.uart.req.bits.activeByteLane := 0.U
-  io.uart.req.bits.isWrite := false.B
-  io.uart.rsp.ready := false.B
-  io.uart.cio_uart_tx_o := false.B
-  io.uart.cio_uart_intr_tx_o := false.B
-
-  // Initialize core UART inputs
-  core.io.uart.get.cio_uart_rx_i := false.B
-  core.io.uart.get.rsp.valid := false.B
-  core.io.uart.get.rsp.bits.dataResponse := 0.U
-  core.io.uart.get.rsp.bits.error := false.B
-  core.io.uart.get.req.ready := true.B
 
   // Connect trigger signals
   io.key_enable_trigger := core.io.key_enable_trigger
@@ -94,18 +68,6 @@ class Top(programFile:Option[String], dataFile:Option[String]) extends Module{
       bkIO.cio_babykyber_intr_encrypt := io.baby_kyber.cio_babykyber_intr_encrypt
       bkIO.cio_babykyber_intr_decrypt := io.baby_kyber.cio_babykyber_intr_decrypt
     case None => // Not enabled
-
-  // Connect UART
-  core.io.uart match {
-    case Some(uartIO) =>
-      // Connect UART req/rsp interfaces
-      uartIO.req <> io.uart.req
-      io.uart.rsp <> uartIO.rsp
-      uartIO.cio_uart_rx_i := io.uart.cio_uart_rx_i
-      io.uart.cio_uart_tx_o := uartIO.cio_uart_tx_o
-      io.uart.cio_uart_intr_tx_o := uartIO.cio_uart_intr_tx_o
-    case None => // UART not enabled
-  }
   }
 
   val dmem = Module(new SRamTop(dataFile))

@@ -7,6 +7,5 @@ case class Configs(
     C         : Boolean = true,
     Zicsr     : Boolean = true,
     TRACE     : Boolean = true,
-    BABY_KYBER: Boolean = true,
-    UART      : Boolean = true
+    BABY_KYBER: Boolean = true
 )
